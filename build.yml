@@ -30,18 +30,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
 
-      - name: Install Python Dependencies (Cython & Buildozer)
+      - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install cython buildozer
 
-      - name: Build APK with Buildozer
+      # این مرحله باعث می‌شود Buildozer پیش‌نیازهای اندروید را آماده کند
+      - name: Initialize Buildozer
         run: |
-          # اجرای دستور ساخت با حالت دیباگ
+          buildozer android clean
+
+      # اینجا با استفاده از تنظیمات داخلی، Cython به درستی در محیط Buildozer نصب می‌شود
+      - name: Build APK
+        run: |
           buildozer -v android debug
 
-      - name: Upload APK Artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: debug-apk
+          name: app-debug
           path: bin/*.apk
