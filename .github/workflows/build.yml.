@@ -36,7 +36,7 @@ jobs:
       - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip
-          python -m pip install buildozer==1.5.0 virtualenv setuptools
+          python -m pip install buildozer==1.5.0 cython==0.29.37 virtualenv setuptools==69.5.1
 
       - name: Cache Buildozer files
         uses: actions/cache@v4
@@ -47,7 +47,16 @@ jobs:
           key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
 
       - name: Build APK
-        run: buildozer -v android debug
+        run: |
+          n=0
+          until buildozer -v android debug; do
+            n=$((n+1))
+            if [ "$n" -ge 2 ]; then
+              echo "Build failed twice"
+              exit 1
+            fi
+            echo "Retrying build..."
+          done
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
