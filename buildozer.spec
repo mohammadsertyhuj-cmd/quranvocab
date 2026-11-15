@@ -1,5 +1,5 @@
 [app]
-title = واژگان قرآن نهم
+title = Quran Vocab 9
 package.name = quranvocab
 package.domain = org.quran9
 source.dir = .
