@@ -1,4 +1,4 @@
-name: Build APK
+name: Build APK v2
 
 on:
   workflow_dispatch:
@@ -25,6 +25,30 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Create app icon
+        run: |
+          python -m pip install pillow
+          python - <<'PY'
+          import math
+          from PIL import Image, ImageDraw
+          s = 512
+          navy = (4, 9, 18)
+          gold = (224, 166, 77)
+          img = Image.new("RGB", (s, s), navy)
+          d = ImageDraw.Draw(img)
+          d.ellipse((90, 100, 410, 420), fill=gold)
+          d.ellipse((150, 80, 450, 380), fill=navy)
+          cx, cy, R, r = 345, 215, 38, 15
+          pts = []
+          for i in range(10):
+              a = -math.pi / 2 + i * math.pi / 5
+              rad = R if i % 2 == 0 else r
+              pts.append((cx + rad * math.cos(a), cy + rad * math.sin(a)))
+          d.polygon(pts, fill=gold)
+          img.save("icon.png")
+          PY
+          ls -l icon.png
+
       - name: Install system packages
         run: |
           sudo apt-get update
@@ -37,7 +61,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install buildozer==1.5.0 cython==0.29.37 virtualenv setuptools==69.5.1
-          cython --version
 
       - name: Cache Buildozer files
         uses: actions/cache@v4
@@ -49,6 +72,9 @@ jobs:
 
       - name: Build APK
         run: |
+          python -m pip install cython==0.29.37
+          which cython
+          cython --version
           n=0
           until buildozer -v android debug; do
             n=$((n+1))
