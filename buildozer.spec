@@ -1,12 +1,12 @@
+
 [app]
-title = Quran Vocab 9
+title = آموزش قرآن نهم
 package.name = quranvocab
 package.domain = org.quran9
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,ttf,json
 source.exclude_dirs = .github,.buildozer,bin,__pycache__
 version = 1.0
-icon.filename = %(source.dir)s/icon.png
 requirements = python3,kivy==2.3.0,arabic-reshaper==3.0.0,python-bidi==0.4.2,six
 orientation = portrait
 fullscreen = 0
