@@ -35,7 +35,7 @@ from kivy.uix.modalview import ModalView
 from kivy.storage.jsonstore import JsonStore
 
 # ==================================================
-# واژگان قرآن نهم (درس ۱ تا ۱۱)
+# آموزش قرآن نهم (درس ۱ تا ۱۱)
 # برای اضافه کردن واژه‌ی جدید، یک خط به لیست زیر اضافه کن:
 # (شماره درس, "واژه", "معنی")
 # ==================================================
@@ -652,7 +652,7 @@ class IslamicHero(FloatLayout):
         self.add_widget(self.right_lantern)
 
         self.title = AppLabel(
-            text="واژگان قرآن نهم",
+            text="آموزش قرآن نهم",
             color=GOLD_LIGHT,
             font_size=sp(28),
             bold=True,
@@ -919,7 +919,7 @@ class WordDetail(ModalView):
 
 class QuranVocabularyApp(App):
 
-    title = "واژگان قرآن نهم"
+    title = "آموزش قرآن نهم"
 
     def build(self):
         try:
