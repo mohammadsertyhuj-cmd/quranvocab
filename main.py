@@ -1,6 +1,9 @@
 
 from pathlib import Path
 
+import os
+import random
+import re
 import traceback
 
 try:
@@ -27,15 +30,16 @@ from kivy.uix.label import Label
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
 from kivy.uix.modalview import ModalView
+from kivy.storage.jsonstore import JsonStore
 
 # ==================================================
-# واژگان قرآن نهم (درس ۱ و ۲)
+# واژگان قرآن نهم (درس ۱ تا ۱۱)
 # برای اضافه کردن واژه‌ی جدید، یک خط به لیست زیر اضافه کن:
 # (شماره درس, "واژه", "معنی")
 # ==================================================
 
 WORDS = [
-    # ----- درس ۱: سوره شوری و زخرف -----
+    # ===== درس ۱ =====
     (1, "شَرَعَ", "تشریع کرد، مقرّر کرد"),
     (1, "وَصّی", "سفارش کرد، وصیت کرد"),
     (1, "أَوْحَیْنا", "وحی کردیم"),
@@ -50,16 +54,180 @@ WORDS = [
     (1, "بَلْدَة", "سرزمین"),
     (1, "مَیْت", "مرده"),
 
-    # ----- درس ۲: سوره دخان و جاثیه -----
-    (2, "مُبارَك / مُبارَكَة", "مبارک، با برکت"),
+    # ===== درس ۲ =====
+    (2, "مُبارَک، مُبارَکَة", "مبارک، با برکت"),
     (2, "مُنْذِر", "هشداردهنده، بیم‌دهنده"),
     (2, "عِنْد", "نزد"),
     (2, "مُرْسِل", "ارسال‌کننده، فرستنده"),
     (2, "بَیْن", "میان، بین"),
     (2, "یُحْیِی", "زنده می‌کند"),
     (2, "یُمِیت", "می‌میراند"),
+    (2, "أَوَّلِین", "پیشین، پیشینیان"),
     (2, "مُوقِنِین", "اهل یقین"),
+    (2, "بَصائِر", "بصیرت‌ها، بینش‌ها"),
+    (2, "سَیِّئات", "کارهای بد، بدی‌ها، جمع سَیِّئَة"),
+    (2, "سَواء", "یکسان، مساوی"),
+    (2, "مَحْیا", "زندگی"),
+    (2, "مَمات", "مرگ"),
+    (2, "ساءَ", "چه بد است"),
+    (2, "یَحْکُمُونَ", "حکم می‌کنند، قضاوت می‌کنند"),
+    (2, "تَسْتَوِی", "مساوی است"),
+
+    # ===== درس ۳ =====
+    (3, "أَجَل", "سرآمد، مدّت"),
+    (3, "مُسَمًّی", "مشخص، معیّن"),
+    (3, "خَوْف", "ترس"),
+    (3, "یَحْزَنُونَ", "اندوهگین می‌شوند، غمگین می‌شوند"),
+    (3, "أَصْحاب", "اهل، یاران"),
+    (3, "خالِدِینَ", "جاودان"),
+    (3, "جَزاء", "پاداش"),
+    (3, "کانُوا یَعْمَلُونَ", "انجام می‌دادند، عمل می‌کردند"),
+    (3, "صَدُّوا", "مانع شدند"),
+    (3, "أَضَلَّ", "محو و نابود کرد، گمراه کرد"),
+    (3, "أَعْمال", "اعمال، کارها"),
+    (3, "نُزِّلَ", "نازل شد"),
+    (3, "اتَّبَعُوا", "تبعیت کردند، پیروی کردند"),
+    (3, "أُنْزِلَ", "نازل شد"),
+
+    # ===== درس ۴ =====
+    (4, "سَکِینَة", "آرامش"),
+    (4, "جُنُود", "لشکریان، جمع جُند"),
+    (4, "یُدْخِلُ", "وارد می‌کند"),
+    (4, "تَجْرِی", "روان است"),
+    (4, "تَحْت", "زیر"),
+    (4, "أَنْهار", "رودها"),
+    (4, "فَوْز", "موفقیت، رستگاری"),
+    (4, "عَظِیم", "بزرگ"),
+    (4, "إِخْوَة", "برادران"),
+    (4, "أَصْلِحُوا", "اصلاح کنید"),
+    (4, "تُرْحَمُونَ", "مورد رحمت قرار می‌گیرید"),
+    (4, "لا یَسْخَرْ", "نباید مسخره کند"),
+    (4, "عَسَی", "شاید"),
+    (4, "یَکُونُونَ، یَکُونُوا", "می‌باشند، باشند"),
+    (4, "نِساء", "زنان"),
+
+    # ===== درس ۵ =====
+    (5, "کانُوا", "بودند"),
+    (5, "أَسْحار", "سَحَرها، جمع سَحَر"),
+    (5, "یَسْتَغْفِرُونَ", "استغفار می‌کنند، آمرزش می‌خواهند"),
+    (5, "أَمْوال", "ثروت، جمع مال"),
+    (5, "سائِل", "نیازمند، درخواست‌کننده"),
+    (5, "مَحْرُوم", "محروم، نیازمند"),
+    (5, "یَسَّرْنا", "آسان کردیم"),
+    (5, "ذِکْر", "پند، یاد"),
+    (5, "آل", "آل، خاندان"),
+    (5, "مُدَّکِر", "پندگیرنده"),
+    (5, "نُذُر", "هشدارها، هشداردهندگان"),
+    (5, "أَخَذْنا", "مجازات کردیم، گرفتیم"),
+
+    # ===== درس ۶ =====
+    (6, "عَلَّمَ", "یاد داد، آموخت"),
+    (6, "بَیان", "سخن، سخن گفتن"),
+    (6, "نَجْم", "علف، گیاه بدون ساقه"),
+    (6, "یَسْجُدُ", "سجده می‌کند"),
+    (6, "رَفَعَ", "برافراشت"),
+    (6, "وَضَعَ", "قرار داد، نهاد"),
+    (6, "میزان", "ترازو، معیار"),
+    (6, "لا تَطْغَوْا", "طغیان نکنید، از حد نگذرید"),
+    (6, "رَأَیْتُمْ", "دیدید، دقت کردید"),
+    (6, "تَزْرَعُونَ", "می‌رویانید، زراعت می‌کنید"),
+    (6, "زارِع", "کشاورز، رویاننده"),
+    (6, "نَشاءُ", "می‌خواهیم"),
+    (6, "تَشْرَبُونَ", "می‌آشامید، می‌نوشید"),
+    (6, "تَشْکُرُونَ", "شکر می‌کنید، سپاسگزاری می‌کنید"),
+
+    # ===== درس ۷ =====
+    (7, "رُسُل", "پیامبران، جمع رَسول"),
+    (7, "بَیِّنات", "دلایل روشن، جمع بَیِّنَة"),
+    (7, "یَقُومَ ... بِ", "رفتار کند ... به، به پا دارد"),
+    (7, "حَدِید", "آهن"),
+    (7, "بَأْس", "سختی"),
+    (7, "مَنافِع", "فایده‌ها"),
+    (7, "یَنْصُرُ", "یاری می‌کند"),
+    (7, "قَوِیّ", "قوی، قدرتمند"),
+    (7, "نَفْس", "شخص، انسان"),
+    (7, "غَد", "فردا"),
+    (7, "لا تَکُونُوا", "نباشید"),
+    (7, "نَسُوا", "فراموش کردند"),
+    (7, "فاسِق", "نافرمان، گناهکار، منحرف"),
+    (7, "یَسْتَوِی", "مساوی است"),
+    (7, "نار", "آتش"),
+    (7, "فائِز", "رستگار، موفّق"),
+
+    # ===== درس ۸ =====
+    (8, "تُنْجِی", "نجات می‌دهد"),
+    (8, "تُؤْمِنُونَ", "ایمان می‌آورید"),
+    (8, "تُجاهِدُونَ", "جهاد و تلاش می‌کنید"),
+    (8, "کُنْتُمْ تَعْلَمُونَ", "می‌دانستید"),
+    (8, "یَغْفِرْ", "می‌آمرزد، می‌پوشاند"),
+    (8, "ذُنُوب", "گناهان، جمع ذَنْب"),
+    (8, "مَساکِن", "خانه‌ها، جمع مَسْکَن"),
+    (8, "عَدْن", "جاودان"),
+    (8, "إِذا", "وقتی که"),
+    (8, "نُودِیَ", "ندا داده شد"),
+    (8, "بَیْع", "خرید و فروش"),
+    (8, "ذلِکُمْ", "این، آن"),
+    (8, "قُضِیَتْ", "تمام شد"),
+    (8, "انْتَشِرُوا", "پراکنده شوید"),
+    (8, "ابْتَغُوا", "بجویید، طلب کنید"),
+    (8, "تُفْلِحُونَ", "رستگار می‌شوید، موفّق می‌شوید"),
+
+    # ===== درس ۹ =====
+    (9, "یَتَّقِ (یَتَّقِی)", "تقوا داشته باشد"),
+    (9, "یَجْعَلْ", "قرار می‌دهد"),
+    (9, "مَخْرَج", "راه نجات، محل خروج"),
+    (9, "حَیْثُ", "جا، هرکجا"),
+    (9, "یَحْتَسِبُ", "گمان می‌کند"),
+    (9, "یَتَوَکَّلُ", "توکّل می‌کند"),
+    (9, "حَسْب", "کافی است"),
+    (9, "قَدْر", "اندازه"),
+    (9, "یَد", "دست، جمع: أَیْدی"),
+    (9, "مَوْت", "مرگ"),
+    (9, "یَبْلُو", "می‌آزماید"),
+    (9, "أَیّ", "کدام، کدام یک"),
+    (9, "کُنَّا نَسْمَعُ", "گوش شنوا داشتیم، می‌شنیدیم"),
+    (9, "أَوْ", "یا"),
+    (9, "نَعْقِلُ", "اندیشه و درک می‌کنیم"),
+    (9, "سَعِیر", "دوزخ، آتش فروزان"),
+
+    # ===== درس ۱۰ =====
+    (10, "أَنْذِرْ", "هشدار ده"),
+    (10, "یَأْتِی", "می‌آید"),
+    (10, "یُؤَخِّرُ", "به تأخیر می‌اندازد، مهلت می‌دهد به"),
+    (10, "دَخَلَ", "داخل شد به، وارد شد به"),
+    (10, "لا تَزِدْ", "نیفزای، زیاد نکن"),
+    (10, "تَبار", "هلاکت، نابودی"),
+    (10, "قُمْ", "برخیز، به پا خیز"),
+    (10, "قَلِیل", "اندک، کم"),
+    (10, "نِصْف", "نصف، نیم"),
+    (10, "رَتِّلْ", "آرام و با دقت بخوان"),
+    (10, "ثَقِیل", "سنگین، گران‌بار، با ارزش"),
+    (10, "سَبْح", "کار و تلاش"),
+    (10, "طَوِیل", "طولانی، بسیار"),
+    (10, "اُذْکُرْ", "یاد کن"),
+    (10, "اتَّخِذْ", "بگیر، قرار بده"),
+
+    # ===== درس ۱۱ =====
+    (11, "عَمَّ (عَنْ + ما)", "از چه"),
+    (11, "کَلَّا", "هرگز چنین نیست"),
+    (11, "ثُمَّ", "سپس، باز هم"),
+    (11, "لَمْ نَجْعَلْ", "قرار ندادیم"),
+    (11, "مِهاد", "محل آرامش و استراحت"),
+    (11, "أَزْواج", "گونه‌ها و شکل‌ها (ی مختلف)، جمع زَوْج"),
+    (11, "سُبات", "آسایش و آرامش"),
+    (11, "مَعاش", "کسب و کار، زندگی"),
+    (11, "یَنْظُرُونَ", "می‌بینند، دقت می‌کنند"),
+    (11, "إِبِل", "شتر"),
+    (11, "کَیْفَ", "چگونه"),
+    (11, "خُلِقَتْ", "خلق شد"),
+    (11, "رُفِعَتْ", "برافراشته شد"),
+    (11, "نُصِبَتْ", "برپا شد"),
+    (11, "سُطِحَتْ", "گسترده شد، هموار شد"),
 ]
+
+# اسم معلم و مدرسه (بین علامت نقل‌قول بنویس؛ اگر خالی باشد نمایش داده نمی‌شود)
+TEACHER_NAME = ""
+SCHOOL_NAME = ""
 
 
 def _normalize(value):
@@ -67,6 +235,7 @@ def _normalize(value):
     value = str(value)
     for ch in "\u064b\u064c\u064d\u064e\u064f\u0650\u0651\u0652\u0670\u0640":
         value = value.replace(ch, "")
+    value = value.replace("\u200c", " ")
     return (
         value.replace("ك", "ک")
         .replace("ي", "ی")
@@ -99,6 +268,44 @@ class WordManager:
             if key in _normalize(w["word"])
             or key in _normalize(w["meaning"])
         ]
+
+
+
+def fa_num(value):
+    return str(value).translate(str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹"))
+
+
+def _meaning_tokens(meaning):
+    parts = re.split(r"[\s،]+", _normalize(meaning))
+    return {p for p in parts if len(p) >= 4}
+
+
+def build_questions(words, lesson=None, count=10):
+    """ساخت سؤال چهارگزینه‌ای: معنی واژه را انتخاب کن."""
+    pool = [w for w in words if lesson is None or w["lesson"] == lesson]
+    random.shuffle(pool)
+    chosen = pool[:count]
+
+    all_meanings = sorted({w["meaning"] for w in words})
+    questions = []
+
+    for w in chosen:
+        right_tokens = _meaning_tokens(w["meaning"])
+        candidates = [
+            m for m in all_meanings
+            if m != w["meaning"]
+            and not (_meaning_tokens(m) & right_tokens)
+        ]
+        random.shuffle(candidates)
+        options = candidates[:3] + [w["meaning"]]
+        random.shuffle(options)
+        questions.append({
+            "word": w["word"],
+            "answer": w["meaning"],
+            "options": options,
+        })
+
+    return questions
 
 
 # ==================================================
@@ -300,6 +507,57 @@ class GoldButton(Button):
     def update_shape(self, *_):
         self.shape.pos = self.pos
         self.shape.size = self.size
+
+
+# ==================================================
+# دکمه گزینه / انتخاب درس
+# ==================================================
+
+class ChipButton(Button):
+
+    COLORS = {
+        "normal": (CARD2, WHITE),
+        "active": (GOLD_LIGHT, BG),
+        "correct": ((0.13, 0.55, 0.32, 1), WHITE),
+        "wrong": ((0.70, 0.18, 0.20, 1), WHITE),
+    }
+
+    def __init__(self, text, state="normal", radius=dp(16), **kwargs):
+        super().__init__(text=rtl_text(text), **kwargs)
+
+        self.font_name = FONT_NAME
+        self.font_size = sp(13)
+        self.halign = "center"
+        self.valign = "middle"
+
+        self.background_normal = ""
+        self.background_down = ""
+        self.background_color = (0, 0, 0, 0)
+
+        with self.canvas.before:
+            self._bg_color = Color(*CARD2)
+            self._bg_shape = RoundedRectangle(
+                pos=self.pos,
+                size=self.size,
+                radius=[radius]
+            )
+
+        self.bind(
+            pos=self._update_shape,
+            size=self._update_shape
+        )
+
+        self.set_state(state)
+
+    def _update_shape(self, *_):
+        self._bg_shape.pos = self.pos
+        self._bg_shape.size = self.size
+        self.text_size = (max(self.width - dp(16), 0), None)
+
+    def set_state(self, state):
+        bg, fg = self.COLORS[state]
+        self._bg_color.rgba = bg
+        self.color = fg
 
 
 # ==================================================
@@ -588,7 +846,7 @@ class WordDetail(ModalView):
         )
 
         panel.add_widget(AppLabel(
-            text="واژه قرآنی",
+            text="واژه قرآنی  |  درس " + fa_num(item["lesson"]),
             color=GOLD,
             font_size=sp(14),
             halign="center",
@@ -688,6 +946,8 @@ class QuranVocabularyApp(App):
 
         self.manager = WordManager()
         self.all_words = self.manager.get_all_words()
+        self.load_stats()
+        self.words_lesson = None
 
         root = BoxLayout(
             orientation="vertical",
@@ -731,8 +991,8 @@ class QuranVocabularyApp(App):
         nav_items = [
             ("home", "⌂", "خانه", self.show_home),
             ("words", "▤", "واژگان", self.show_words),
-            ("practice", "♧", "تمرین", lambda: self.coming_soon("تمرین")),
-            ("quiz", "♜", "آزمون", lambda: self.coming_soon("آزمون")),
+            ("practice", "♧", "تمرین", lambda: self.show_picker("practice")),
+            ("quiz", "♜", "آزمون", lambda: self.show_picker("exam")),
         ]
 
         for key, icon, label, callback in nav_items:
@@ -779,6 +1039,7 @@ class QuranVocabularyApp(App):
 
     def clear_page(self):
         self.page.clear_widgets()
+        self.scroll.scroll_y = 1
 
     # ---------- عنوان بخش ----------
 
@@ -860,6 +1121,40 @@ class QuranVocabularyApp(App):
             width=dp(25),
             halign="center"
         ))
+
+        return card
+
+    # ---------- کارت معلم و مدرسه ----------
+
+    def teacher_card(self):
+
+        lines = []
+
+        if TEACHER_NAME.strip():
+            lines.append(("معلم: " + TEACHER_NAME.strip(), WHITE, 14))
+
+        if SCHOOL_NAME.strip():
+            lines.append(("مدرسه: " + SCHOOL_NAME.strip(), MUTED, 12))
+
+        if not lines:
+            return None
+
+        card = PremiumCard(
+            orientation="vertical",
+            size_hint_y=None,
+            height=dp(26 * len(lines) + 24),
+            padding=[dp(14), dp(10)],
+            spacing=dp(2),
+            radius=dp(20),
+            panel_color=(0.028, 0.055, 0.105, 1)
+        )
+
+        for text, color, size in lines:
+            card.add_widget(AppLabel(
+                text=text,
+                color=color,
+                font_size=sp(size)
+            ))
 
         return card
 
@@ -986,6 +1281,10 @@ class QuranVocabularyApp(App):
             self.creator_card()
         )
 
+        teacher_card = self.teacher_card()
+        if teacher_card is not None:
+            self.page.add_widget(teacher_card)
+
         # آمار
         stats = GridLayout(
             cols=3,
@@ -1003,7 +1302,7 @@ class QuranVocabularyApp(App):
         )
 
         stats.add_widget(
-            StatCard("♜", "آزمون‌ها", "۰")
+            StatCard("♜", "آزمون‌ها", fa_num(self.exam_count))
         )
 
         self.page.add_widget(stats)
@@ -1028,7 +1327,7 @@ class QuranVocabularyApp(App):
                 "▥",
                 "آزمون",
                 "سنجش آموخته‌ها",
-                lambda: self.coming_soon("آزمون")
+                lambda: self.show_picker("exam")
             )
         )
 
@@ -1037,7 +1336,7 @@ class QuranVocabularyApp(App):
                 "✦",
                 "تمرین",
                 "تقویت یادگیری",
-                lambda: self.coming_soon("تمرین")
+                lambda: self.show_picker("practice")
             )
         )
 
@@ -1078,10 +1377,13 @@ class QuranVocabularyApp(App):
         self.set_nav("words")
         self.clear_page()
 
+        self.words_lesson = None
+
         self.page.add_widget(
             self.section_title(
                 "فهرست واژگان",
-                f"{len(self.all_words)} واژه در مجموعه فعلی"
+                f"{fa_num(len(self.all_words))} واژه از "
+                f"{fa_num(len(self.manager.lessons))} درس"
             )
         )
 
@@ -1106,6 +1408,47 @@ class QuranVocabularyApp(App):
             self.search_input.base_direction = "rtl"
 
         self.page.add_widget(self.search_input)
+
+        # انتخاب درس
+        chips_scroll = ScrollView(
+            do_scroll_y=False,
+            size_hint_y=None,
+            height=dp(42),
+            bar_width=0
+        )
+
+        chips_row = BoxLayout(
+            orientation="horizontal",
+            size_hint_x=None,
+            spacing=dp(7)
+        )
+
+        chips_row.bind(
+            minimum_width=chips_row.setter("width")
+        )
+
+        self.chip_buttons = {}
+
+        for key in [None] + list(self.manager.lessons):
+
+            label = "همه" if key is None else "درس " + fa_num(key)
+
+            chip = ChipButton(
+                label,
+                state="active" if key is None else "normal",
+                size_hint_x=None,
+                width=dp(78)
+            )
+
+            chip.bind(
+                on_release=lambda _b, k=key: self.set_words_lesson(k)
+            )
+
+            chips_row.add_widget(chip)
+            self.chip_buttons[key] = chip
+
+        chips_scroll.add_widget(chips_row)
+        self.page.add_widget(chips_scroll)
 
         self.result_title = AppLabel(
             text="همه واژگان",
@@ -1135,6 +1478,35 @@ class QuranVocabularyApp(App):
 
         self.refresh_words(self.all_words)
 
+    def set_words_lesson(self, lesson):
+
+        self.words_lesson = lesson
+
+        for key, chip in self.chip_buttons.items():
+            chip.set_state("active" if key == lesson else "normal")
+
+        self.update_words()
+
+    def update_words(self):
+
+        text = self.search_input.text.strip()
+        items = self.manager.search(text)
+
+        if self.words_lesson is not None:
+            items = [
+                w for w in items
+                if w["lesson"] == self.words_lesson
+            ]
+
+        if text or self.words_lesson is not None:
+            self.result_title.text = (
+                f"نتایج: {fa_num(len(items))} واژه"
+            )
+        else:
+            self.result_title.text = "همه واژگان"
+
+        self.refresh_words(items)
+
     # ---------- نمایش واژگان ----------
 
     def refresh_words(self, items):
@@ -1153,7 +1525,7 @@ class QuranVocabularyApp(App):
 
             return
 
-        for item in items:
+        for index, item in enumerate(items):
 
             card = WordCard(
                 item,
@@ -1162,33 +1534,530 @@ class QuranVocabularyApp(App):
 
             self.results.add_widget(card)
 
-            card.opacity = 0
+            if index < 12:
+                card.opacity = 0
 
-            Animation(
-                opacity=1,
-                duration=0.22
-            ).start(card)
+                Animation(
+                    opacity=1,
+                    duration=0.22
+                ).start(card)
 
     # ---------- جست‌وجو ----------
 
     def on_search(self, _instance, value):
-
-        results = self.manager.search(value)
-
-        self.result_title.text = (
-            f"نتایج جست‌وجو: {len(results)}"
-            if value.strip()
-            else "همه واژگان"
-        )
-
-        self.refresh_words(
-            results if value.strip() else self.all_words
-        )
+        self.update_words()
 
     # ---------- نمایش معنی ----------
 
     def open_word(self, item):
         WordDetail(item).open()
+
+    # ---------- آمار آزمون ----------
+
+    def load_stats(self):
+
+        self.exam_count = 0
+        self.best_percent = 0
+        self.store = None
+
+        try:
+            self.store = JsonStore(
+                os.path.join(self.user_data_dir, "stats.json")
+            )
+
+            if self.store.exists("stats"):
+                data = self.store.get("stats")
+                self.exam_count = int(data.get("exams", 0))
+                self.best_percent = int(data.get("best", 0))
+
+        except Exception:
+            self.store = None
+
+    def save_stats(self):
+
+        try:
+            if self.store is not None:
+                self.store.put(
+                    "stats",
+                    exams=self.exam_count,
+                    best=self.best_percent
+                )
+        except Exception:
+            pass
+
+    # ---------- انتخاب درس (آزمون / تمرین) ----------
+
+    def show_picker(self, mode):
+
+        exam = (mode == "exam")
+
+        self.set_nav("quiz" if exam else "practice")
+        self.clear_page()
+
+        self.page.add_widget(self.section_title(
+            "آزمون" if exam else "تمرین",
+            "درس مورد نظر را انتخاب کن"
+        ))
+
+        self.page.add_widget(AppLabel(
+            text=(
+                "معنی هر واژه را از بین چهار گزینه انتخاب کن."
+                if exam else
+                "کارت‌ها را مرور کن؛ کارتی که بلد نبودی دوباره می‌آید."
+            ),
+            color=MUTED,
+            font_size=sp(11),
+            size_hint_y=None,
+            height=dp(36)
+        ))
+
+        if exam and self.best_percent:
+            self.page.add_widget(AppLabel(
+                text="بهترین نتیجه‌ی تو: " + fa_num(self.best_percent) + " درصد",
+                color=GOLD,
+                font_size=sp(12),
+                size_hint_y=None,
+                height=dp(26)
+            ))
+
+        starter = self.start_exam if exam else self.start_practice
+
+        all_btn = GoldButton(
+            text="همه درس‌ها",
+            size_hint_y=None,
+            height=dp(54)
+        )
+
+        all_btn.bind(on_release=lambda *_: starter(None))
+        self.page.add_widget(all_btn)
+
+        grid = GridLayout(
+            cols=3,
+            size_hint_y=None,
+            spacing=dp(9),
+            row_default_height=dp(52),
+            row_force_default=True
+        )
+
+        grid.bind(minimum_height=grid.setter("height"))
+
+        for lesson in self.manager.lessons:
+
+            btn = ChipButton("درس " + fa_num(lesson))
+
+            btn.bind(
+                on_release=lambda _b, l=lesson: starter(l)
+            )
+
+            grid.add_widget(btn)
+
+        self.page.add_widget(grid)
+
+    def lesson_label(self, lesson):
+        return "همه درس‌ها" if lesson is None else "درس " + fa_num(lesson)
+
+    # ---------- تمرین (کارت مرور) ----------
+
+    def start_practice(self, lesson):
+
+        cards = [
+            w for w in self.all_words
+            if lesson is None or w["lesson"] == lesson
+        ]
+
+        random.shuffle(cards)
+
+        self.practice = {
+            "cards": cards,
+            "index": 0,
+            "lesson": lesson,
+            "again": 0,
+        }
+
+        self.show_flashcard()
+
+    def show_flashcard(self):
+
+        p = self.practice
+
+        self.set_nav("practice")
+        self.clear_page()
+
+        if p["index"] >= len(p["cards"]):
+            self.show_practice_result()
+            return
+
+        item = p["cards"][p["index"]]
+        remaining = len(p["cards"]) - p["index"]
+
+        self.page.add_widget(self.section_title(
+            "تمرین  |  " + self.lesson_label(p["lesson"]),
+            "باقی‌مانده: " + fa_num(remaining) + " کارت"
+        ))
+
+        card = PremiumCard(
+            orientation="vertical",
+            size_hint_y=None,
+            height=dp(250),
+            padding=dp(16),
+            spacing=dp(8),
+            radius=dp(26),
+            panel_color=(0.035, 0.065, 0.125, 1)
+        )
+
+        card.add_widget(AppLabel(
+            text=item["word"],
+            color=GOLD_LIGHT,
+            font_size=sp(34),
+            halign="center"
+        ))
+
+        meaning = AppLabel(
+            text=item["meaning"],
+            color=WHITE,
+            font_size=sp(19),
+            halign="center",
+            opacity=0
+        )
+
+        card.add_widget(meaning)
+        self.page.add_widget(card)
+
+        buttons = BoxLayout(
+            orientation="horizontal",
+            size_hint_y=None,
+            height=dp(54),
+            spacing=dp(10)
+        )
+
+        show_btn = GoldButton(text="نمایش معنی")
+
+        def reveal(*_):
+            meaning.opacity = 1
+            buttons.clear_widgets()
+
+            again_btn = ChipButton("دوباره می‌خوانم", state="wrong")
+            known_btn = ChipButton("بلد بودم", state="correct")
+
+            again_btn.bind(on_release=lambda *_: self.practice_next(False))
+            known_btn.bind(on_release=lambda *_: self.practice_next(True))
+
+            buttons.add_widget(again_btn)
+            buttons.add_widget(known_btn)
+
+        show_btn.bind(on_release=reveal)
+        buttons.add_widget(show_btn)
+        self.page.add_widget(buttons)
+
+    def practice_next(self, known):
+
+        p = self.practice
+        item = p["cards"][p["index"]]
+
+        if not known:
+            p["cards"].append(item)
+            p["again"] += 1
+
+        p["index"] += 1
+        self.show_flashcard()
+
+    def show_practice_result(self):
+
+        p = self.practice
+
+        self.page.add_widget(self.section_title(
+            "تمرین تمام شد",
+            self.lesson_label(p["lesson"])
+        ))
+
+        panel = PremiumCard(
+            orientation="vertical",
+            size_hint_y=None,
+            height=dp(150),
+            padding=dp(16),
+            spacing=dp(6),
+            radius=dp(24),
+            panel_color=(0.035, 0.065, 0.125, 1)
+        )
+
+        panel.add_widget(AppLabel(
+            text="آفرین! همه‌ی کارت‌ها را مرور کردی.",
+            color=GOLD_LIGHT,
+            font_size=sp(17),
+            halign="center"
+        ))
+
+        panel.add_widget(AppLabel(
+            text="تعداد تکرارها: " + fa_num(p["again"]),
+            color=MUTED,
+            font_size=sp(12),
+            halign="center"
+        ))
+
+        self.page.add_widget(panel)
+
+        again = GoldButton(
+            text="تمرین دوباره",
+            size_hint_y=None,
+            height=dp(52)
+        )
+
+        again.bind(on_release=lambda *_: self.start_practice(p["lesson"]))
+        self.page.add_widget(again)
+
+        other = ChipButton(
+            "انتخاب درس دیگر",
+            size_hint_y=None,
+            height=dp(52)
+        )
+
+        other.bind(on_release=lambda *_: self.show_picker("practice"))
+        self.page.add_widget(other)
+
+    # ---------- آزمون ----------
+
+    def start_exam(self, lesson):
+
+        count = 15 if lesson is None else 10
+
+        self.exam = {
+            "lesson": lesson,
+            "questions": build_questions(self.all_words, lesson, count),
+            "index": 0,
+            "score": 0,
+            "wrong": [],
+            "answered": False,
+        }
+
+        self.show_question()
+
+    def show_question(self):
+
+        ex = self.exam
+        q = ex["questions"][ex["index"]]
+        total = len(ex["questions"])
+        last = (ex["index"] == total - 1)
+
+        self.set_nav("quiz")
+        self.clear_page()
+
+        self.page.add_widget(self.section_title(
+            "آزمون  |  " + self.lesson_label(ex["lesson"]),
+            "سؤال " + fa_num(ex["index"] + 1) + " از " + fa_num(total)
+            + "   |   امتیاز: " + fa_num(ex["score"])
+        ))
+
+        qcard = PremiumCard(
+            orientation="vertical",
+            size_hint_y=None,
+            height=dp(150),
+            padding=dp(14),
+            spacing=dp(4),
+            radius=dp(24),
+            panel_color=(0.035, 0.065, 0.125, 1)
+        )
+
+        qcard.add_widget(AppLabel(
+            text="معنی این واژه چیست؟",
+            color=MUTED,
+            font_size=sp(12),
+            halign="center",
+            size_hint_y=None,
+            height=dp(24)
+        ))
+
+        qcard.add_widget(AppLabel(
+            text=q["word"],
+            color=GOLD_LIGHT,
+            font_size=sp(32),
+            halign="center"
+        ))
+
+        self.page.add_widget(qcard)
+
+        self.option_buttons = []
+
+        for i, option in enumerate(q["options"]):
+
+            btn = ChipButton(
+                option,
+                size_hint_y=None,
+                height=dp(58)
+            )
+
+            btn.bind(on_release=lambda _b, i=i: self.answer(i))
+
+            self.page.add_widget(btn)
+            self.option_buttons.append(btn)
+
+        self.next_btn = GoldButton(
+            text="مشاهده نتیجه" if last else "سؤال بعدی",
+            size_hint_y=None,
+            height=dp(52),
+            opacity=0,
+            disabled=True
+        )
+
+        self.next_btn.bind(on_release=lambda *_: self.next_question())
+        self.page.add_widget(self.next_btn)
+
+    def answer(self, index):
+
+        ex = self.exam
+
+        if ex["answered"]:
+            return
+
+        ex["answered"] = True
+
+        q = ex["questions"][ex["index"]]
+        chosen = q["options"][index]
+
+        if chosen == q["answer"]:
+            ex["score"] += 1
+        else:
+            ex["wrong"].append({
+                "word": q["word"],
+                "answer": q["answer"],
+                "chosen": chosen,
+            })
+
+        for i, btn in enumerate(self.option_buttons):
+
+            if q["options"][i] == q["answer"]:
+                btn.set_state("correct")
+            elif i == index:
+                btn.set_state("wrong")
+
+        self.next_btn.opacity = 1
+        self.next_btn.disabled = False
+
+    def next_question(self):
+
+        ex = self.exam
+        ex["index"] += 1
+        ex["answered"] = False
+
+        if ex["index"] >= len(ex["questions"]):
+            self.finish_exam()
+        else:
+            self.show_question()
+
+    def finish_exam(self):
+
+        ex = self.exam
+        total = len(ex["questions"])
+        score = ex["score"]
+        percent = round(score * 100 / total) if total else 0
+
+        self.exam_count += 1
+        self.best_percent = max(self.best_percent, percent)
+        self.save_stats()
+
+        self.set_nav("quiz")
+        self.clear_page()
+
+        self.page.add_widget(self.section_title(
+            "نتیجه‌ی آزمون",
+            self.lesson_label(ex["lesson"])
+        ))
+
+        if percent >= 90:
+            message = "عالی بود!"
+        elif percent >= 70:
+            message = "آفرین، ادامه بده!"
+        elif percent >= 50:
+            message = "خوب است، کمی بیشتر مرور کن."
+        else:
+            message = "بیشتر تمرین کن، می‌توانی!"
+
+        panel = PremiumCard(
+            orientation="vertical",
+            size_hint_y=None,
+            height=dp(170),
+            padding=dp(16),
+            spacing=dp(4),
+            radius=dp(26),
+            panel_color=(0.035, 0.065, 0.125, 1)
+        )
+
+        panel.add_widget(AppLabel(
+            text=fa_num(score) + " از " + fa_num(total),
+            color=GOLD_LIGHT,
+            font_size=sp(34),
+            halign="center"
+        ))
+
+        panel.add_widget(AppLabel(
+            text=fa_num(percent) + " درصد",
+            color=WHITE,
+            font_size=sp(16),
+            halign="center"
+        ))
+
+        panel.add_widget(AppLabel(
+            text=message,
+            color=MUTED,
+            font_size=sp(13),
+            halign="center"
+        ))
+
+        self.page.add_widget(panel)
+
+        again = GoldButton(
+            text="آزمون دوباره",
+            size_hint_y=None,
+            height=dp(52)
+        )
+
+        again.bind(on_release=lambda *_: self.start_exam(ex["lesson"]))
+        self.page.add_widget(again)
+
+        other = ChipButton(
+            "انتخاب درس دیگر",
+            size_hint_y=None,
+            height=dp(52)
+        )
+
+        other.bind(on_release=lambda *_: self.show_picker("exam"))
+        self.page.add_widget(other)
+
+        if ex["wrong"]:
+
+            self.page.add_widget(self.section_title(
+                "واژه‌هایی که باید مرور کنی"
+            ))
+
+            for item in ex["wrong"]:
+
+                card = PremiumCard(
+                    orientation="vertical",
+                    size_hint_y=None,
+                    height=dp(86),
+                    padding=[dp(14), dp(8)],
+                    spacing=dp(1),
+                    radius=dp(18)
+                )
+
+                card.add_widget(AppLabel(
+                    text=item["word"],
+                    color=GOLD_LIGHT,
+                    font_size=sp(19)
+                ))
+
+                card.add_widget(AppLabel(
+                    text="پاسخ درست: " + item["answer"],
+                    color=WHITE,
+                    font_size=sp(12)
+                ))
+
+                card.add_widget(AppLabel(
+                    text="پاسخ تو: " + item["chosen"],
+                    color=MUTED,
+                    font_size=sp(11)
+                ))
+
+                self.page.add_widget(card)
 
     # ---------- بخش‌های آینده ----------
 
