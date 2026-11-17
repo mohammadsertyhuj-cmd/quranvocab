@@ -3,6 +3,7 @@ from pathlib import Path
 
 import os
 import random
+from functools import lru_cache
 import re
 import traceback
 
@@ -18,6 +19,7 @@ from kivy.core.window import Window
 from kivy.core.text import LabelBase
 from kivy.metrics import dp, sp
 from kivy.animation import Animation
+from kivy.clock import Clock
 from kivy.graphics import (
     Color, RoundedRectangle, Line,
     Ellipse, Rectangle
@@ -225,9 +227,11 @@ WORDS = [
     (11, "سُطِحَتْ", "گسترده شد، هموار شد"),
 ]
 
-# اسم معلم و مدرسه (بین علامت نقل‌قول بنویس؛ اگر خالی باشد نمایش داده نمی‌شود)
-TEACHER_NAME = ""
-SCHOOL_NAME = ""
+# اطلاعات مدرسه (اگر خالی باشد نمایش داده نمی‌شود)
+SCHOOL_NAME = "فرهنگ شهید پرکار"
+PROVINCE = "آذربایجان شرقی"
+CITY = "مراغه"
+COLLAB_NAME = "استاد عابدینی"
 
 
 def _normalize(value):
@@ -354,12 +358,17 @@ for font_path in FONT_CANDIDATES:
         break
 
 
+@lru_cache(maxsize=4096)
+def _shape(value):
+    return get_display(
+        arabic_reshaper.reshape(value)
+    )
+
+
 def rtl_text(value):
     if not HAS_RTL:
         return str(value)
-    return get_display(
-        arabic_reshaper.reshape(str(value))
-    )
+    return _shape(str(value))
 
 
 # ==================================================
@@ -1124,17 +1133,24 @@ class QuranVocabularyApp(App):
 
         return card
 
-    # ---------- کارت معلم و مدرسه ----------
+    # ---------- کارت مدرسه ----------
 
     def teacher_card(self):
 
         lines = []
 
-        if TEACHER_NAME.strip():
-            lines.append(("معلم: " + TEACHER_NAME.strip(), WHITE, 14))
-
         if SCHOOL_NAME.strip():
-            lines.append(("مدرسه: " + SCHOOL_NAME.strip(), MUTED, 12))
+            lines.append(("مدرسه: " + SCHOOL_NAME.strip(), WHITE, 15))
+
+        place = " - ".join(
+            part.strip() for part in (PROVINCE, CITY) if part.strip()
+        )
+
+        if place:
+            lines.append((place, MUTED, 12))
+
+        if COLLAB_NAME.strip():
+            lines.append(("با همکاری: " + COLLAB_NAME.strip(), GOLD_LIGHT, 13))
 
         if not lines:
             return None
@@ -1142,7 +1158,7 @@ class QuranVocabularyApp(App):
         card = PremiumCard(
             orientation="vertical",
             size_hint_y=None,
-            height=dp(26 * len(lines) + 24),
+            height=dp(27 * len(lines) + 22),
             padding=[dp(14), dp(10)],
             spacing=dp(2),
             radius=dp(20),
@@ -1507,11 +1523,16 @@ class QuranVocabularyApp(App):
 
         self.refresh_words(items)
 
-    # ---------- نمایش واژگان ----------
+    # ---------- نمایش واژگان (صفحه‌بندی برای سرعت) ----------
+
+    PAGE_SIZE = 15
 
     def refresh_words(self, items):
 
         self.results.clear_widgets()
+        self.more_button = None
+        self.pending_words = list(items)
+        self.shown_words = 0
 
         if not items:
 
@@ -1525,27 +1546,49 @@ class QuranVocabularyApp(App):
 
             return
 
-        for index, item in enumerate(items):
+        self.load_more_words()
 
-            card = WordCard(
-                item,
-                self.open_word
+    def load_more_words(self, *_):
+
+        if self.more_button is not None:
+            self.results.remove_widget(self.more_button)
+            self.more_button = None
+
+        start = self.shown_words
+        end = min(start + self.PAGE_SIZE, len(self.pending_words))
+
+        for item in self.pending_words[start:end]:
+            self.results.add_widget(
+                WordCard(item, self.open_word)
             )
 
-            self.results.add_widget(card)
+        self.shown_words = end
+        left = len(self.pending_words) - end
 
-            if index < 12:
-                card.opacity = 0
+        if left > 0:
 
-                Animation(
-                    opacity=1,
-                    duration=0.22
-                ).start(card)
+            self.more_button = GoldButton(
+                text="نمایش بیشتر (" + fa_num(left) + " واژه‌ی دیگر)",
+                size_hint_y=None,
+                height=dp(50)
+            )
+
+            self.more_button.bind(on_release=self.load_more_words)
+            self.results.add_widget(self.more_button)
 
     # ---------- جست‌وجو ----------
 
     def on_search(self, _instance, value):
-        self.update_words()
+
+        event = getattr(self, "_search_event", None)
+
+        if event is not None:
+            event.cancel()
+
+        self._search_event = Clock.schedule_once(
+            lambda _dt: self.update_words(),
+            0.3
+        )
 
     # ---------- نمایش معنی ----------
 
